@@ -1,0 +1,729 @@
+openapi: 3.0.0
+info:
+  description: Hybrid cloud configuration checkout API
+  version: 0.0.7
+  title: Hybrid cloud config checker
+  x-author: Illia Malinich
+paths:
+  /cloud/:
+    put:
+      tags:
+        - Cloud
+      summary: Check cloud configuration
+      description: Check and save provided cloud configuration
+      parameters:
+        - name: cloud_config
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Cloud'
+      responses:
+        '200':
+          description: Checkout result
+  '/cloud/{cloud_id}':
+    get:
+      tags:
+        - Cloud
+      summary: Return checked cloud configuration by ID
+      description: Returns a single checked cloud configuration
+      parameters:
+        - in: path
+          name: cloud_id
+          schema:
+            type: integer
+          required: true
+      responses:
+        '200':
+          description: Saved cloud configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cloud'
+components:
+  schemas:
+    Service:
+      type: object
+      description: Microservices of a hybrid cloud
+      properties:
+        name:
+          type: string
+          description: String identifier
+        type:
+          enum:
+            - web_app
+            - api_app
+            - sql_db
+            - nosql_db
+            - http_proxy
+            - msg_broker
+            - livestream
+            - code_repository
+            - logging
+            - index
+            - object_storage
+            - cache
+            - build
+            - ai_ml
+            - mail
+            - dns
+            - idp
+            - firewall
+            - monitoring
+            - classic
+            - vpn
+          description: |-
+            Service type. Main types:
+            - web_app - provides the operation of the frontend and/or backend part of a specific web application or website as an HTTP/HTTPS server
+            - api_app - provides REST/SOAP API access to the functionality of a specific information system. Can contain cloud lambda-functions inside
+            - sql_db - SQL database
+            - nosql_db - NoSQL database
+            - http_proxy - distributes client HTTP traffic between separate instances (nodes) of other services
+            - msg_broker - message exchange system between components of the information system
+            - livestream - provides the operation of audio/video broadcasts
+            - code_repository - provides the storage of current software code
+            - logging - provides the collection and processing of events occurring in other services
+            - index - provides full-text search in a database with textual information
+            - object_storage - provides the storage of objects in an S3 repository
+            - cache - provides the storage of temporary information in the cache
+            - build - service where software packages are compiled and assembled
+            - ai_ml - service for performing artificial intelligence calculations
+            - mail - receives, processes, and sends email messages
+            - dns - provides domain name support
+            - idp - provides the operation of a unified user database
+            - firewall - protects other services from DDoS attacks and hacking attempts
+            - monitoring - monitors the state of information systems and informs support
+            - classic - provides the operation of any traditional services with binary protocols
+            - vpn - provides site-to site links of VPN server for secured staff access
+        ports:
+          type: array
+          items:
+            $ref: '#/components/schemas/Port'
+        accessibility_priority:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 0
+          description: Accessibility priority
+        security_priority:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 0
+          description: Security priority
+        exposed:
+          type: boolean
+          default: false
+          description: |-
+            Service available via Internet. Exposed services have:
+            - non-null values of "reachability" field
+            - ports 80 and 443 exposed by ProxyRule
+            - other ports exposed via NatRule and L3Rule
+            Services exposed via ProxyRule and having large security_priority should be protected by one or more WAFRule
+            Some admins also having adminstrative access for non-exposed services via NatRule and L3Rule from corporate subnet
+        cacheable:
+          type: boolean
+          default: false
+          description: Caching capability
+        replicable:
+          type: boolean
+          default: false
+          description: Capability of creating remote replicated mirrors
+        extensible:
+          type: boolean
+          default: false
+          description: The ability to create additional instances of the service
+        ondemand:
+          type: boolean
+          default: false
+          description: Created on demand
+    Link:
+      type: object
+      description: Connection between microservices
+      properties:
+        service_src:
+          type: string
+          description: Dependent service
+        service_dst:
+          type: string
+          description: Service provider
+        is_binary:
+          type: boolean
+          default: false
+          description: If communication protocol with another microservice is binary (not HTTP/HTTPS)
+        is_ssl:
+          type: boolean
+          default: false
+          description: Communication with another microservice is secured by SSL/TLS
+        is_dependency:
+          type: boolean
+          default: false
+          description: If links caused by strong dependency between services
+    Network:
+      type: object
+      description: Network configuration of the cloud
+      properties:
+        firewall:
+          $ref: '#/components/schemas/Firewall'
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+    Firewall:
+      type: object
+      description: Firewall configuration. Firewall affects only traffic comming from public internet and not affects traffic inside cloud
+      properties:
+        l3_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/L3Rule'
+        waf_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/WAFRule'
+    Gateway:
+      type: object
+      description: Network gateway configuration. Affects NAT and HTTP reverse proxy configurations. Network gateway affects only traffic comming from public internet and not affects traffic inside cloud
+      properties:
+        nat_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/NatRule'
+        proxy_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProxyRule'
+    Port:
+      type: object
+      description: Application ports of service
+      properties:
+        number:
+          type: integer
+          description: Number between 1 and 65535
+        protocol:
+          type: string
+          description: Which protocol application uses
+          enum:
+          - tcp
+          - udp
+          - both
+    L3Rule:
+      type: object
+      description: Firewall L3 filter rules. For each NatRule corresponding L3 rule should be configured
+      properties:
+        src_ip:
+          type: string
+          description: Defines IP address or subnet to which this rule matches. Rule applies to all internet if null. Discovered IPs and subnets should be anonymized by using RFC5737 TEST-NET subnets
+          nullable: true
+        dst_service:
+          type: string
+          description: Defines to which cloud service this rule is linked to. Rule applies to all services if null
+          nullable: true
+        dst_ports:
+          type: array
+          description: Defines to which destination port rule is linked to. Rule applies to all ports if null
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Port'
+        action:
+          type: string
+          description: Action of rule to applied traffic
+          enum:
+          - allow
+          - deny
+    WAFRule:
+      type: object
+      description: Firewall WAF filter rules. Applies to all traffic comming to exposed ports 80, 443 and all ProxyRules
+      properties:
+        hostname:
+          type: string
+          description: Defines hostname or its regex to which this rule matches. Rule applies to all hosts if null. Discovered domains should be anonymized by replacing by example.com or example.org (subdomains should be preserved)
+          nullable: true
+        uri:
+          type: string
+          description: Defines URI prefix or its regex to which this rule matches. Rule applies to all requests if null
+          nullable: true
+        src_ip:
+          type: string
+          description: Defines IP address or subnet to which this rule matches. Rule applies to all internet if null. Discovered IPs and subnets should be anonymized by using RFC5737 TEST-NET subnets
+          nullable: true
+        dst_service:
+          type: string
+          description: Defines to which cloud service this rule is linked to. Rule applies to all services if null
+          nullable: true
+        action:
+          type: string
+          description: Action of rule to applied traffic
+          enum:
+          - allow
+          - deny
+    NatRule:
+      type: object
+      description: Network gateway NAT rules. Use for all ports exept 80 and 443. For exposing services with ports 80 and 443 use ProxyRules instead
+      properties:
+        external_port:
+          description: Port on external IP
+          $ref: '#/components/schemas/Port'
+        internal_port:
+          description: Port on internal service
+          $ref: '#/components/schemas/Port'
+        dst_service:
+          type: string
+          description: Defines to which cloud service this rule is linked to
+    ProxyRule:
+      type: object
+      description: Network gateway HTTP proxy rules
+      properties:
+        hostname:
+          type: string
+          description: Defines hostname or its regex to which this rule matches
+        uri:
+          type: string
+          description: Defines URI or its regex to which this rule matches
+        dst_service:
+          type: string
+          description: Defines to which cloud service this rule is linked to
+    Cloud:
+      type: object
+      description: Hybrid cloud configuration
+      properties:
+        private:
+          type: object
+          description: Private part configuration of the hybrid cloud
+          properties:
+            services:
+              type: array
+              items:
+                $ref: '#/components/schemas/Service'
+            links:
+              type: array
+              items:
+                $ref: '#/components/schemas/Link'
+            network:
+              $ref: '#/components/schemas/Network'
+        public:
+          type: object
+          description: Public part configuration of the hybrid cloud
+          properties:
+            services:
+              type: array
+              items:
+                $ref: '#/components/schemas/Service'
+            links:
+              type: array
+              items:
+                $ref: '#/components/schemas/Link'
+            network:
+              $ref: '#/components/schemas/Network'
+        hybrid:
+          type: object
+          description: Configuration of connections between the private and public parts of the hybrid cloud
+          properties:
+            links:
+              type: array
+              items:
+                $ref: '#/components/schemas/Link'
+        metadata:
+          type: object
+          description: UUID of cloud in collection DB
+          properties:
+            uuid:
+              type: string
+      x-examples:
+        HybridCloud:
+          private:
+            services:
+              - name: pri_service_idp
+                type: idp
+                ports:
+                  - number: 22
+                    protocol: tcp
+                  - number: 443
+                    protocol: tcp
+                  - number: 389
+                    protocol: tcp
+                accessibility_priority: 7
+                security_priority: 10
+                exposed: false
+                cacheable: false
+                replicable: true
+                extensible: true
+                ondemand: false
+              - name: pri_service_sql
+                type: sql_db
+                ports:
+                  - number: 22
+                    protocol: tcp
+                  - number: 3306
+                    protocol: tcp
+                accessibility_priority: 7
+                security_priority: 7
+                exposed: false
+                cacheable: false
+                replicable: true
+                extensible: true
+                ondemand: false
+              - name: pri_service_api
+                type: api_app
+                ports:
+                  - number: 8080
+                    protocol: tcp
+                  - number: 8443
+                    protocol: tcp
+                accessibility_priority: 4
+                security_priority: 5
+                exposed: false
+                cacheable: true
+                replicable: false
+                extensible: false
+              - name: pri_service_ws
+                type: web_app
+                ports:
+                  - number: 80
+                    protocol: tcp
+                  - number: 443
+                    protocol: tcp
+                accessibility_priority: 3
+                security_priority: 3
+                exposed: true
+                cacheable: true
+                replicable: false
+                extensible: false
+              - name: pri_service_ws2
+                type: web_app
+                ports:
+                  - number: 80
+                    protocol: tcp
+                  - number: 443
+                    protocol: tcp
+                accessibility_priority: 4
+                security_priority: 3
+                exposed: true
+                cacheable: true
+                replicable: false
+                extensible: false
+                ondemand: false
+            links:
+              - service_src: pri_service_api
+                service_dst: pri_service_idp
+                is_dependency: true
+                is_binary: true
+                is_ssl: true
+              - service_src: pri_service_api
+                service_dst: pri_service_sql
+                is_dependency: true
+                is_binary: true
+                is_ssl: false
+              - service_src: pri_service_ws
+                service_dst: pri_service_sql
+                is_dependency: true
+                is_binary: true
+                is_ssl: false
+              - service_src: pri_service_ws2
+                service_dst: pri_service_sql
+                is_dependency: true
+                is_binary: true
+                is_ssl: false
+              - service_src: pri_service_ws
+                service_dst: pri_service_api
+                is_dependency: true
+                is_binary: false
+                is_ssl: false
+            network:
+              firewall:
+                l3_rules:
+                  - src_ip: "192.0.2.0/24"
+                    dst_service: "pri_service_sql"
+                    dst_ports:
+                      - number: 58192
+                        protocol: tcp
+                    action: "allow"
+                  - src_ip: "198.51.100.0/24"
+                    dst_service: "pri_service_idp"
+                    dst_ports:
+                      - number: 58194
+                        protocol: tcp
+                    action: "allow"
+                  - src_ip: null
+                    dst_service: null
+                    dst_ports: null
+                    action: "deny"
+                waf_rules:
+                  - hostname: "internal.example.com"
+                    uri: "/staff/*"
+                    src_ip: "203.0.113.0/24"
+                    dst_service: "pri_service_ws2"
+                    action: "allow"
+                  - hostname: "internal.example.com"
+                    uri: "/staff/*"
+                    src_ip: null
+                    dst_service: null
+                    action: "deny"
+              gateway:
+                nat_rules:
+                  - external_port:
+                      number: 58192
+                      protocol: tcp
+                    internal_port:
+                      number: 22
+                      protocol: tcp
+                    dst_service: "pri_service_sql"
+                  - external_port:
+                      number: 58194
+                      protocol: tcp
+                    internal_port:
+                      number: 22
+                      protocol: tcp
+                    dst_service: "pri_service_idp"
+                proxy_rules:
+                  - hostname: "internal.example.com"
+                    uri: "/*"
+                    dst_service: "pri_service_ws"
+                  - hostname: "internal.example.com"
+                    uri: "/staff/*"
+                    dst_service: "pri_service_ws2"
+          public:
+            services:
+              - name: pub_service_sql
+                type: sql_db
+                ports:
+                  - number: 22
+                    protocol: tcp
+                  - number: 3306
+                    protocol: tcp
+                accessibility_priority: 10
+                security_priority: 5
+                exposed: false
+                cacheable: false
+                replicable: true
+                extensible: true
+                ondemand: false
+              - name: pub_service_mongo
+                type: nosql_db
+                ports:
+                  - number: 22
+                    protocol: tcp
+                  - number: 27017
+                    protocol: tcp
+                accessibility_priority: 10
+                security_priority: 5
+                exposed: false
+                cacheable: false
+                replicable: true
+                extensible: true
+                ondemand: false
+              - name: pub_service_s3
+                type: object_storage
+                ports:
+                  - number: 8080
+                    protocol: tcp
+                accessibility_priority: 10
+                security_priority: 5
+                exposed: false
+                cacheable: false
+                replicable: true
+                extensible: false
+                ondemand: false
+              - name: pub_service_api
+                type: api_app
+                ports:
+                  - number: 8080
+                    protocol: tcp
+                  - number: 8443
+                    protocol: tcp
+                accessibility_priority: 10
+                security_priority: 4
+                exposed: false
+                cacheable: true
+                replicable: false
+                extensible: true
+                ondemand: false
+              - name: pub_service_web
+                type: web_app
+                ports:
+                  - number: 80
+                    protocol: tcp
+                  - number: 443
+                    protocol: tcp
+                accessibility_priority: 8
+                security_priority: 3
+                exposed: true
+                cacheable: false
+                replicable: false
+                extensible: true
+                ondemand: false
+              - name: pub_service_proxy
+                type: http_proxy
+                ports:
+                  - number: 80
+                    protocol: tcp
+                  - number: 443
+                    protocol: tcp
+                accessibility_priority: 8
+                security_priority: 3
+                exposed: true
+                cacheable: false
+                replicable: false
+                extensible: true
+                ondemand: false
+              - name: pub_cache_api
+                type: cache
+                ports:
+                  - number: 6379
+                    protocol: tcp
+                accessibility_priority: 9
+                security_priority: 5
+                exposed: false
+                cacheable: false
+                replicable: true
+                extensible: true
+                ondemand: true
+              - name: pub_replica_sql
+                type: sql_db
+                ports:
+                  - number: 22
+                    protocol: tcp
+                  - number: 3306
+                    protocol: tcp
+                accessibility_priority: 10
+                security_priority: 6
+                exposed: false
+                cacheable: false
+                replicable: false
+                extensible: false
+                ondemand: false
+            links:
+              - service_src: pub_service_api
+                service_dst: pub_service_sql
+                is_dependency: true
+                is_binary: true
+                is_ssl: false
+              - service_src: pub_service_api
+                service_dst: pub_cache_api
+                is_dependency: true
+                is_binary: false
+                is_ssl: false
+              - service_src: pub_service_api
+                service_dst: pub_replica_sql
+                is_dependency: true
+                is_binary: true
+                is_ssl: false
+              - service_src: pub_service_web
+                service_dst: pub_service_api
+                is_dependency: true
+                is_binary: false
+                is_ssl: false
+              - service_src: pub_service_web
+                service_dst: pub_service_mongo
+                is_dependency: true
+                is_binary: false
+                is_ssl: false
+              - service_src: pub_service_web
+                service_dst: pub_service_s3
+                is_dependency: true
+                is_binary: false
+                is_ssl: false
+              - service_src: pub_service_proxy
+                service_dst: pub_service_web
+                is_dependency: true
+                is_binary: false
+                is_ssl: false
+            network:
+              firewall:
+                l3_rules:
+                  - src_ip: "0.0.0.0/0"
+                    dst_service: "pub_service_proxy"
+                    dst_ports:
+                      - number: 80
+                        protocol: tcp
+                    action: "allow"
+                  - src_ip: "0.0.0.0/0"
+                    dst_service: "pub_service_proxy"
+                    dst_ports:
+                      - number: 443
+                        protocol: tcp
+                    action: "allow"
+                  - src_ip: "192.0.2.0/24"
+                    dst_service: pub_service_s3
+                    dst_ports: 57602
+                    action: "allow"
+                  - src_ip: "192.0.2.0/24"
+                    dst_service: pub_service_mongo
+                    dst_ports: 58911
+                    action: "allow"
+                  - src_ip: null
+                    dst_service: pub_service_api
+                    dst_ports: 58343
+                    action: "allow"
+                  - src_ip: null
+                    dst_service: null
+                    dst_ports: null
+                    action: "deny"
+                waf_rules:
+                  - hostname: "api.example.com"
+                    uri: "/v1/*"
+                    src_ip: "198.18.0.0/15"
+                    dst_service: "pub_service_api"
+                    action: "allow"
+                  - hostname: "api.example.com"
+                    uri: null
+                    src_ip: null
+                    dst_service: "pub_service_api"
+                    action: "deny"
+              gateway:
+                nat_rules:
+                  - external_port:
+                      number: 57602
+                      protocol: tcp
+                    internal_port:
+                      number: 8080
+                      protocol: tcp
+                    dst_service: "pub_service_s3"
+                  - external_port:
+                      number: 58911
+                      protocol: tcp
+                    internal_port:
+                      number: 22
+                      protocol: tcp
+                    dst_service: "pub_service_mongo"
+                  - external_port:
+                      number: 58343
+                      protocol: tcp
+                    internal_port:
+                      number: 8443
+                      protocol: tcp
+                    dst_service: "pub_service_api"
+                proxy_rules:
+                  - hostname: "example.com"
+                    uri: "/*"
+                    dst_service: "pub_service_web"
+                  - hostname: "example.com"
+                    uri: "/cache/*"
+                    dst_service: "pub_service_proxy"
+                  - hostname: "api.example.com"
+                    uri: "/v1/*"
+                    dst_service: "pub_service_api"
+          hybrid:
+            links:
+              - service_src: pub_service_web
+                service_dst: pri_service_ws2
+                is_dependency: false
+                is_binary: false
+                is_ssl: false
+              - service_src: pub_service_api
+                service_dst: pri_service_api
+                is_dependency: false
+                is_binary: false
+                is_ssl: false
+              - service_src: pub_service_api
+                service_dst: pri_service_sql
+                is_dependency: false
+                is_binary: false
+                is_ssl: false
+          cloud:
+            uuid: "cc68d0a9-91a3-4274-8cd7-bc38097bdabe"
+  requestBodies:
+    Cloud:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Cloud'
+      description: Cloud configuration
+      required: true
